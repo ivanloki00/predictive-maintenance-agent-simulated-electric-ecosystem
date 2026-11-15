@@ -26,8 +26,9 @@ Son hipótesis de diseño, no resultados validados en equipos reales.
 El orden de implementación será deliberadamente más acotado. Consulta las
 [decisiones de implementación](phase-2-implementation-notes.md):
 
-1. Definir un contrato de telemetría versionado y separar las entradas
-   observables de la verdad-terreno del simulador.
+1. Usar el [contrato de telemetría v1.0](phase-2-versioned-telemetry-schema.md)
+   y mantener las entradas observables separadas de la verdad-terreno del
+   simulador.
 2. Crear perfiles operativos y escenarios de degradación deterministas y
    reproducibles mediante una semilla.
 3. Establecer primero un baseline sencillo inspirado en la física; probar LSTM

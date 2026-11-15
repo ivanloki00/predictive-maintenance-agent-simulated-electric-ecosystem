@@ -39,26 +39,17 @@ que él mismo generó; no puede demostrar precisión en campo.
   ADK explican la evidencia de eventos y solicitan acciones simuladas; no
   emiten órdenes a equipos reales.
 
-## Siguiente paso: cerrar el contrato de telemetría
+## Contrato de telemetría y siguiente paso
 
-Completa la incidencia de GitHub
-[#2 — Definir el contrato de telemetría y el esquema de datos sintéticos](https://github.com/ivanloki00/predictive-maintenance-agent-simulated-electric-ecosystem/issues/2)
-antes de implementar `telemetry_sim.py`.
+El contrato v1.0 y sus ejemplos están en
+[phase-2-versioned-telemetry-schema.md](phase-2-versioned-telemetry-schema.md).
+Separa las muestras observables del archivo de etiquetas, asigna las
+particiones por ejecución y especifica señales y valores ausentes. La cadencia
+de 1 Hz se plantea como una configuración inicial de la demo, no como estándar
+SCADA universal.
 
-El esquema debe especificar marca de tiempo/cadencia, identificadores del
-activo y escenario, perfil, unidades, reglas para valores ausentes y, como
-mínimo:
-
-- Contexto observable: temperatura ambiente, humedad relativa, irradiancia o
-  carga/estado de sesión del cargador, temperatura del disipador, tensión y
-  corriente del bus DC, y las tres corrientes de fase AC.
-- Objetivos/etiquetas simulados y separados de las entradas: temperatura de
-  unión estimada del IGBT, ESR, resistencia de aislamiento, modo e inicio de
-  degradación, severidad y, cuando corresponda, umbral/instante de fallo.
-- Metadatos de reproducibilidad y evaluación: semilla aleatoria, identificador
-  de ejecución/escenario y grupo de entrenamiento/validación/prueba.
-
-**Criterio de salida:** revisar un esquema versionado y ejemplos sanos y
-degradados; etiquetar cada campo como entrada similar a una medición,
-característica derivada o verdad-terreno exclusiva del simulador. Después se
-implementarán el generador y las funciones de inyección de fallos.
+**Siguiente paso:** completar la incidencia
+[#3 — Especificar ventanas adaptativas y evaluación del modelo](https://github.com/ivanloki00/predictive-maintenance-agent-simulated-electric-ecosystem/issues/3).
+Después, implementar `telemetry_sim.py` conforme al contrato. La ingesta debe
+construir entradas mediante una lista permitida de campos; no basta con quitar
+etiquetas de un objeto combinado.
