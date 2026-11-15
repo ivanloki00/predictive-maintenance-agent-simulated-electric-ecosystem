@@ -1,56 +1,57 @@
-# Predictive Maintenance Agent for Power Electronics
+# Agente de mantenimiento predictivo para electrónica de potencia
 
-Portfolio demonstrator for predictive maintenance of utility-scale Freesun
-solar inverters and NB-series EV chargers. The system will generate synthetic
-SCADA-like telemetry, estimate progressive degradation, investigate anomalies
-with Google ADK agents, and present a traceable, safety-gated maintenance
-recommendation.
+Demostrador de portfolio para el mantenimiento predictivo de inversores
+solares Freesun de escala utility y cargadores de vehículos eléctricos de la
+serie NB. El sistema generará telemetría sintética similar a SCADA, estimará la
+degradación progresiva, investigará anomalías con agentes de Google ADK y
+presentará recomendaciones trazables sujetas a una política de seguridad.
 
-## Status
+## Estado
 
-- Phase 1 — domain research and infographic brief: complete; the source
-  document is present locally but has not been added to this public repository.
-- Phase 2 — state of the art and sequence-model proposal: delivered; see
-  [the report](docs/phase-2-sota.md) and
-  [implementation decisions](docs/phase-2-implementation-notes.md).
-- Target demo/review: **15 January 2027**.
+- **Fase 1 — dominio e infografía:** completada. El informe está en
+  [Telemetría Inversores Solares Industriales](docs/Telemetr%C3%ADa%20Inversores%20Solares%20Industriales.md).
+- **Fase 2 — estado del arte y propuesta de modelo secuencial:** entregada.
+  Consulta el [informe SOTA](docs/phase-2-sota.md) y las
+  [decisiones de implementación](docs/phase-2-implementation-notes.md).
+- **Demo/revisión objetivo:** 15 de enero de 2027.
 
-The target assumes approximately 8–10 hours of solo work per week from
-16 November 2026, with a demonstrable synthetic-data path and simulated
-management/control actions. Allow roughly one additional week if access to
-Google Cloud services or observability tooling takes longer than expected.
+La estimación supone unas 8–10 horas de trabajo individual por semana desde el
+16 de noviembre de 2026, con una demo basada en datos sintéticos y acciones
+administrativas y de control simuladas. Se reserva aproximadamente una semana
+para integración; la falta de acceso a servicios de Google Cloud u observabilidad
+no debe bloquear la demo local.
 
-## Planned demo
+## Demo prevista
 
-1. Generate reproducible Freesun- and NB-like telemetry profiles.
-2. Inject gradual IGBT thermal and DC-link ESR degradation, plus humidity-linked
-   insulation-resistance drops.
-3. Use a sequence model as an experimental predictor; report its performance
-   on held-out synthetic scenarios without implying validation on real assets.
-4. Route anomalies through a root orchestrator and thermal/dielectric
-   specialist agents.
-5. Apply a policy gate before any action. Jira/SAP operations and power
-   derating/isolation are **simulations only**; this portfolio project will not
-   connect to or command real OT equipment.
-6. Show telemetry, predictions, agent hand-offs, safety decisions, and the
-   resulting simulated work order in a live demo.
+1. Generar perfiles reproducibles de telemetría Freesun y NB.
+2. Inyectar degradación térmica gradual del IGBT, crecimiento de ESR del bus DC
+   y caídas de resistencia de aislamiento relacionadas con la humedad.
+3. Probar un modelo secuencial como predictor experimental e informar su
+   rendimiento en escenarios sintéticos no usados durante el entrenamiento.
+4. Enrutar las anomalías mediante un orquestador raíz y agentes especialistas
+   térmicos y dieléctricos.
+5. Aplicar una política de seguridad antes de cualquier acción. Jira, SAP y la
+   limitación o el aislamiento de potencia son **simulaciones**: el proyecto no
+   se conectará a equipos OT reales ni los controlará.
+6. Mostrar en directo la telemetría, las predicciones, las derivaciones entre
+   agentes, las decisiones de seguridad y la orden de trabajo simulada.
 
-## Initial scope
+## Alcance inicial
 
-- Primary telemetry: estimated IGBT junction temperature, DC-link ESR,
-  insulation resistance to ground, and AC phase-current asymmetry.
-- Supporting context: ambient temperature, humidity, irradiance, load/current,
-  heatsink temperature, and device family.
-- Compare windowing/sequence handling for smooth solar operating profiles and
-  the faster 20–40 minute EV-charging thermal ramps.
-- Keep synthetic data generation, model evaluation, agent reasoning, and
-  action execution separable and testable.
+- Señales principales: temperatura de unión estimada del IGBT, ESR del bus DC,
+  resistencia de aislamiento a tierra y asimetría de corrientes de fase AC.
+- Contexto: temperatura ambiente, humedad, irradiancia, carga/corriente,
+  temperatura del disipador y familia del equipo.
+- Comparar ventanas temporales para los perfiles solares suaves y las rampas
+  térmicas de carga de vehículos eléctricos de 20–40 minutos.
+- Mantener separados y comprobables la generación de datos, la evaluación del
+  modelo, el razonamiento de agentes y la ejecución de acciones.
 
-## Tracking
+## Seguimiento
 
-The GitHub repository contains dated milestones and issues. The companion
-GitHub Project board is the working kanban; development is intentionally on
-`main` because this is a solo portfolio project.
+El repositorio contiene hitos e incidencias con fechas. El GitHub Project
+asociado es el tablero de trabajo; al ser un proyecto individual, el desarrollo
+se realiza directamente sobre `main`.
 
-See [docs/roadmap.md](docs/roadmap.md) for the schedule, acceptance criteria,
-assumptions, and demo gate.
+Consulta la [hoja de ruta](docs/roadmap.md) para ver el calendario, los criterios
+de aceptación, las hipótesis y la condición de salida de la demo.
