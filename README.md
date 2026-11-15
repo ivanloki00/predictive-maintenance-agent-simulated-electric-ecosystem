@@ -9,7 +9,7 @@ recommendation.
 ## Status
 
 - Phase 1 — domain research and infographic brief: complete; the source
-  document currently lives in the parent Portfolio folder.
+  document is present locally but has not been added to this public repository.
 - Phase 2 — state of the art and sequence-model definition: in progress.
 - Target demo/review: **15 January 2027**.
 
