@@ -13,7 +13,8 @@ presentará recomendaciones trazables sujetas a una política de seguridad.
 - **Fase 2 — estado del arte y propuesta de modelo secuencial:** entregada.
   Consulta el [informe SOTA](docs/phase-2-sota.md) y las
   [decisiones de implementación](docs/phase-2-implementation-notes.md), además
-  del [esquema de telemetría v1.0](docs/phase-2-versioned-telemetry-schema.md).
+  del [esquema de telemetría v1.0](docs/phase-2-versioned-telemetry-schema.md)
+  y la [especificación de ventanas y evaluación](docs/phase-2-windowing-and-evaluation.md).
 - **Demo/revisión objetivo:** 15 de enero de 2027.
 
 La estimación supone unas 8–10 horas de trabajo individual por semana desde el

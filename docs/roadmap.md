@@ -29,15 +29,17 @@ El orden de implementación será deliberadamente más acotado. Consulta las
 1. Usar el [contrato de telemetría v1.0](phase-2-versioned-telemetry-schema.md)
    y mantener las entradas observables separadas de la verdad-terreno del
    simulador.
-2. Crear perfiles operativos y escenarios de degradación deterministas y
+2. Especificar regímenes, ventanas, particiones y métricas en
+   [phase-2-windowing-and-evaluation.md](phase-2-windowing-and-evaluation.md).
+3. Crear perfiles operativos y escenarios de degradación deterministas y
    reproducibles mediante una semilla.
-3. Establecer primero un baseline sencillo inspirado en la física; probar LSTM
+4. Establecer primero un baseline sencillo inspirado en la física; probar LSTM
    después. Añadir PINN, atención u otras arquitecturas solo si los datos y la
    mejora observada justifican su complejidad.
-4. Implementar de forma determinista y acotada la selección de régimen y ventana.
+5. Implementar de forma determinista y acotada la selección de régimen y ventana.
    Los agentes investigan eventos detectados; no controlan el muestreo rápido
    ni las protecciones.
-5. Tratar el daño por humedad y el rendimiento del modelo como sintéticos y no
+6. Tratar el daño por humedad y el rendimiento del modelo como sintéticos y no
    calibrados, salvo que se disponga de parámetros del material y datos de
    validación adecuados.
 

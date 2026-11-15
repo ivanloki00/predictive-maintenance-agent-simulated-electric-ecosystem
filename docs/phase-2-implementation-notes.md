@@ -50,6 +50,9 @@ SCADA universal.
 
 **Siguiente paso:** completar la incidencia
 [#3 — Especificar ventanas adaptativas y evaluación del modelo](https://github.com/ivanloki00/predictive-maintenance-agent-simulated-electric-ecosystem/issues/3).
-Después, implementar `telemetry_sim.py` conforme al contrato. La ingesta debe
+La propuesta de regímenes, ventanas, particiones y métricas está documentada en
+[phase-2-windowing-and-evaluation.md](phase-2-windowing-and-evaluation.md).
+Después de acordar los parámetros pendientes, implementar la lógica de
+ventaneo y `telemetry_sim.py` conforme a ambos contratos. La ingesta debe
 construir entradas mediante una lista permitida de campos; no basta con quitar
 etiquetas de un objeto combinado.
