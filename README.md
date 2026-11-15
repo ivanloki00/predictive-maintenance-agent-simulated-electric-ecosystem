@@ -10,7 +10,9 @@ recommendation.
 
 - Phase 1 — domain research and infographic brief: complete; the source
   document is present locally but has not been added to this public repository.
-- Phase 2 — state of the art and sequence-model definition: in progress.
+- Phase 2 — state of the art and sequence-model proposal: delivered; see
+  [the report](docs/phase-2-sota.md) and
+  [implementation decisions](docs/phase-2-implementation-notes.md).
 - Target demo/review: **15 January 2027**.
 
 The target assumes approximately 8–10 hours of solo work per week from

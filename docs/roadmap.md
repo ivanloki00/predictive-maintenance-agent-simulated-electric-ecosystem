@@ -11,10 +11,33 @@ service access differs materially.
 
 | Milestone | Target date | Exit criteria |
 | --- | --- | --- |
-| M1 — SOTA and sequence-model specification | 4 Dec 2026 | Degradation mechanisms, signal definitions, labels, window policy, and evaluation protocol documented. |
+| M1 — SOTA and sequence-model specification | 4 Dec 2026 | Phase 2 report incorporated; telemetry schema, bounded window policy, evaluation protocol, and review of quantitative claims completed. |
 | M2 — Simulator and predictive baseline | 18 Dec 2026 | Reproducible Freesun/NB telemetry and degradation scenarios; baseline evaluated on held-out synthetic runs; model callable through a stable interface. |
 | M3 — Multi-agent investigation and safe actions | 8 Jan 2027 | ADK orchestration and specialist agents use typed tools; all proposed actions pass a fail-closed policy gate; external actions remain mocked. |
 | M4 — Observability and demo-ready package | 15 Jan 2027 | End-to-end scenario, dashboard/visualization, traces, runbook, limitations, and review checklist are ready. |
+
+## Phase 2 outcome and model decisions
+
+The [Phase 2 SOTA report](phase-2-sota.md) proposes PINN/LSTM-based hidden
+temperature estimation, adaptive windows for Freesun and NB operating
+profiles, humidity-informed insulation degradation, and prognostics metrics.
+These are design hypotheses, not validation results for real equipment.
+
+The implementation order is intentionally narrower; details and rationale are
+in [phase-2-implementation-notes.md](phase-2-implementation-notes.md):
+
+1. Define a versioned telemetry contract and keep observable inputs separate
+   from simulator-only ground truth.
+2. Build deterministic, seeded operating profiles and degradation scenarios.
+3. Establish a simple physics-inspired/naive baseline before testing an LSTM.
+   Add PINN, attention, or a more elaborate architecture only if the baseline
+   and available data justify the complexity.
+4. Make regime/window selection deterministic and bounded in code; agents
+   investigate detected events and do not control high-rate sampling or
+   protection behavior.
+5. Treat humidity/Peck-style damage and all model performance as synthetic and
+   uncalibrated unless material-specific parameters and suitable validation
+   data become available.
 
 ## Demo acceptance gate
 
@@ -26,6 +49,9 @@ service access differs materially.
 - Evaluation uses chronological train/validation/test separation and includes
   at least one baseline; report false alarms and lead-time on synthetic test
   scenarios.
+- Do not present the report's cited temperature-accuracy figure or any
+  synthetic-data metric as a guaranteed real-equipment result unless it is
+  independently reproduced and its test conditions are documented.
 - Agent outputs cite the telemetry/tool results they used; tool schemas and
   failures are explicit.
 - Unsafe, malformed, or unapproved actions are rejected. No credentials or
