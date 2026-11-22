@@ -48,11 +48,69 @@ particiones por ejecución y especifica señales y valores ausentes. La cadencia
 de 1 Hz se plantea como una configuración inicial de la demo, no como estándar
 SCADA universal.
 
-**Siguiente paso:** completar la incidencia
-[#3 — Especificar ventanas adaptativas y evaluación del modelo](https://github.com/ivanloki00/predictive-maintenance-agent-simulated-electric-ecosystem/issues/3).
-La propuesta de regímenes, ventanas, particiones y métricas está documentada en
+## Implementación de la incidencia #3 por fases
+
+La lógica determinista reutilizable está en el paquete
+`predictive_maintenance` y sus pruebas se ejecutan con
+`python -m unittest discover -s tests -v`. Para generar un ejemplo reproducible
+fuera del repositorio:
+
+```powershell
+python -m predictive_maintenance.demo --output C:\temp\predictive-maintenance-demo --seed 42
+```
+
+El comando escribe `telemetry.jsonl`, `labels.jsonl`, `manifest.json`,
+`windows.jsonl` y `evaluation.json`. La cadencia, los umbrales, las duraciones,
+el stride y los parámetros RC del demo son explícitos y se guardan en los
+artefactos; tienen estatus `synthetic_unvalidated` y no son valores recomendados
+para activos reales. Las configuraciones de las primitivas se pueden sustituir
+al llamar directamente a las funciones de simulación y ventana.
+
+1. **Regímenes y ventanas:** implementados clasificadores solares con
+   histéresis/debounce y NB con detección inmediata de rampas, más una selección
+   temporal acotada que marca `insufficient_history` y aplica stride, con opción
+   de selección forzada en una transición. El pipeline procesa cada ejecución
+   después de asignar sus particiones; el buffer no cruza ejecución, activo,
+   perfil, esquema ni partición. Las muestras solo aceptan campos de telemetría
+   y características incluidos en la lista permitida.
+2. **Particiones:** implementada la asignación cronológica determinista de
+   `run_id` completos a `train`, `validation` y `test`, antes de construir
+   ventanas. No realiza todavía agrupación de generalización por familia o
+   activo.
+3. **Evaluación:** implementados MAE/RMSE, puntuación de alarmas por evento con
+   cooldown, antelación, omisiones, alarmas tardías y falsas alarmas por hora,
+   desglosados por perfil/escenario; la regresión se desglosa además por régimen
+   operativo. El MAE de RUL se limita a ejecuciones con fallo observado. Los
+   costes asimétricos son opcionales, requieren pesos, unidad, fuente y
+   justificación; el demo no agrega costes sin esos datos. El baseline RC usa
+   solo señales observables y consulta las etiquetas por separado. Separa la
+   regresión de estado actual del pronóstico de persistencia a `t + H`, evaluado
+   solo si existe una muestra objetivo con timestamp exacto.
+4. **Entorno sintético:** `predictive_maintenance.simulator` genera perfiles
+   Freesun/NB con semilla, degradación configurable, paso físico separado de la
+   cadencia emitida, etiquetas futuras y un manifiesto de particiones. Admite
+   intervalos NB sintéticos distintos durante sesión y reposo; cada muestra
+   declara el próximo intervalo esperado y el buffer solo reinicia el historial
+   si el hueco excede tanto ese intervalo como el `max_gap_s` configurado. Las
+   ventanas usan cobertura UTC y mínimo de observaciones por régimen. Esta
+   capacidad no verifica las cadencias candidatas del informe ni acredita una
+   configuración de equipo real. La integración física aún mantiene la carga
+   observada durante los subpasos entre emisiones; los eventos operativos que
+   ocurran dentro de un intervalo largo no se resuelven con fidelidad física.
+5. **Hitos sintéticos:** aviso predictivo objetivo, evento de protección
+   sintético y fin de vida tienen fracciones configurables y marcas temporales
+   separadas, independientes de la marca de fallo. Son fracciones de progreso
+   interno no validadas; la fecha objetivo de aviso no representa una predicción
+   realizada. No se usan los candidatos de la página 14 como límites reales.
+   **Pendiente:** cadencias Freesun/NB verificadas en fuentes primarias,
+   cobertura térmica e higrotérmica a escala adecuada, modelo LSTM/PINN, datos
+   de campo, calibración física y agrupación de generalización por activo. El
+   baseline de persistencia y las etiquetas sintéticas no demuestran precisión
+   en equipos reales.
+
+El diseño y sus criterios completos siguen en
 [phase-2-windowing-and-evaluation.md](phase-2-windowing-and-evaluation.md).
-Después de acordar los parámetros pendientes, implementar la lógica de
-ventaneo y `telemetry_sim.py` conforme a ambos contratos. La ingesta debe
-construir entradas mediante una lista permitida de campos; no basta con quitar
-etiquetas de un objeto combinado.
+La incidencia
+[#3 — Refinar ventanas y evaluación sintética Freesun/NB con supuestos trazables](https://github.com/ivanloki00/predictive-maintenance-agent-simulated-electric-ecosystem/issues/3)
+debe permanecer abierta hasta completar los criterios de aceptación restantes
+anteriores; la integración básica con el simulador ya está disponible.

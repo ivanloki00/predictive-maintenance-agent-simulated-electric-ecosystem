@@ -38,8 +38,10 @@ desde la ruta de inferencia.
 
 ## Cadencia, valores ausentes y calidad
 
-- La cadencia objetivo es de 1000 ms y puede configurarse por ejecución. Cada
-  ejecución registra su cadencia en el manifiesto.
+- El modo fijo de desarrollo usa 1000 ms por defecto. El simulador también
+  permite una cadencia NB distinta en reposo; cada muestra lleva
+  `next_expected_interval_ms` y el manifiesto describe ambas cadencias y su
+  procedencia sintética.
 - Una medición ausente se representa como JSON `null`, nunca como `NaN`.
   `quality.missing_fields` enumera las señales ausentes en esa muestra.
 - `null` en una señal que no aplica al perfil indica “no aplicable”; una señal
@@ -63,6 +65,7 @@ Cada línea de `telemetry.jsonl` es un objeto JSON independiente y válido.
 | `run_id` | string | UUID v4 | Identificador de la ejecución sintética. |
 | `sample_index` | entero | Sin unidad | Índice desde cero, monótono dentro de la ejecución. |
 | `timestamp` | string | ISO 8601 UTC | Instante de la muestra, con sufijo `Z`. |
+| `next_expected_interval_ms` | entero positivo | ms | Intervalo de emisión esperado después de esta muestra; `null` solo si el calendario no puede anticiparse. El primer registro también lo informa. |
 | `asset_id` | string | — | Identificador sintético del activo. |
 | `profile` | enum | `solar_utility` / `ev_nb` | Perfil operativo; contexto permitido, no etiqueta de degradación. |
 | `observables.env_temp_c` | número o `null` | °C | Temperatura ambiente. |
@@ -103,14 +106,24 @@ Cada línea de `labels.jsonl` corresponde a una muestra de telemetría por
 | `ground_truth.degradation_mode` | enum | — | `none`, `igbt_thermal_fatigue`, `dc_link_capacitor` o `insulation`; puede ampliarse en una nueva versión. |
 | `ground_truth.degradation_state` | enum | — | `healthy`, `early_warning` o `critical`, según umbrales documentados en la configuración del escenario. |
 | `ground_truth.event_onset_utc` | timestamp o `null` | ISO 8601 UTC | Inicio de la degradación; `null` si el escenario es sano. |
+| `ground_truth.predictive_warning_target_utc` | timestamp o `null` | ISO 8601 UTC | Hito objetivo sintético derivado del progreso normalizado de degradación; no es una alarma emitida por un predictor. |
+| `ground_truth.predictive_warning_target_active` | booleano | — | Indica si la muestra alcanzó el hito objetivo de aviso. |
+| `ground_truth.synthetic_protection_event_utc` | timestamp o `null` | ISO 8601 UTC | Hito de protección simulado, independiente del umbral de fallo y del fin de vida. |
+| `ground_truth.synthetic_protection_active` | booleano | — | Indica si la muestra alcanzó el hito de protección sintético. |
+| `ground_truth.end_of_life_event_utc` | timestamp o `null` | ISO 8601 UTC | Hito de fin de vida configurado por separado. |
+| `ground_truth.end_of_life_reached` | booleano | — | Indica si la muestra alcanzó el hito de fin de vida. |
 | `ground_truth.failure_time_utc` | timestamp o `null` | ISO 8601 UTC | Instante de fallo simulado; `null` si no ocurre durante la ejecución. |
 | `ground_truth.failure_within_horizon` | booleano o `null` | — | Si el fallo ocurre dentro de `prediction_horizon_s` configurado para la ejecución. `null` si la etiqueta no aplica. |
 
-Los umbrales de temperatura, ESR y aislamiento se configuran por escenario y
-se guardan en el manifiesto; no son constantes universales del esquema. El
-estado de degradación describe el estado actual simulado. La predicción de un
-fallo dentro de un horizonte fijo es un objetivo distinto, calculado a partir
-de `failure_time_utc`; no se confunde con una alarma por umbral instantáneo.
+Los hitos de aviso, protección sintética y fin de vida usan fracciones del
+progreso normalizado de degradación, configuradas y trazadas por separado en el
+manifiesto. Son supuestos sintéticos de baja confianza, no umbrales de equipo ni
+protecciones operativas. La fecha de aviso es un objetivo de verdad-terreno, no
+una predicción o una alarma producida por el modelo. Los candidatos de la página
+14 no se aplican. Los umbrales de temperatura, ESR y aislamiento que definen el
+fallo simulado también se configuran por escenario; no son constantes
+universales del esquema. La predicción de un fallo dentro de un horizonte fijo
+es otro objetivo, calculado a partir de `failure_time_utc`.
 Si se entrena una predicción futura de ESR, temperatura o aislamiento, el
 objetivo debe desplazarse al horizonte definido y no copiar la etiqueta del
 mismo instante.
@@ -121,8 +134,21 @@ El manifiesto, fuera de las muestras y de la ruta de inferencia, registra:
 
 - `run_id`, `seed`, `profile`, `scenario` y `schema_version`;
 - `sampling_period_ms`, `prediction_horizon_s` y duración de la ejecución;
+- paso físico del simulador y calendario de emisión de telemetría por modo,
+  cuando la cadencia varíe dentro de la ejecución;
+- el calendario NB sintético indica las cadencias durante sesión/reposo y su
+  procedencia; no acredita que coincida con una configuración real del equipo;
 - grupo de evaluación (`train`, `validation` o `test`), asignado por ejecución;
-- configuración y umbrales usados para generar etiquetas.
+- configuraciones de simulación, ventanas, baseline y evaluación, con
+  parámetros individuales identificados por unidad, significado, procedencia,
+  nivel de confianza y estado de validación.
+- fracciones de progreso normalizado que definen aviso, protección sintética y
+  fin de vida, marcadas explícitamente como supuestos no validados.
+
+La cadencia v1 de 1000 ms es un modo de desarrollo configurable, no una
+afirmación de cadencia SCADA real. Si una ejecución emula varios modos con
+intervalos de emisión distintos, el manifiesto debe describir sus segmentos
+temporales para distinguir el reposo programado de una pérdida de telemetría.
 
 No se reutiliza el mismo `run_id` entre particiones. La misma semilla y
 configuración deben reproducir la ejecución, sin compartir ventanas
@@ -138,6 +164,7 @@ solapadas entre conjuntos.
   "run_id": "550e8400-e29b-41d4-a716-446655440000",
   "sample_index": 0,
   "timestamp": "2026-11-15T12:00:00.000Z",
+  "next_expected_interval_ms": 1000,
   "asset_id": "FREESUN-HEC-01",
   "profile": "solar_utility",
   "observables": {
@@ -180,6 +207,12 @@ La etiqueta asociada se almacena en `labels.jsonl`, nunca en el objeto anterior:
     "degradation_mode": "none",
     "degradation_state": "healthy",
     "event_onset_utc": null,
+    "predictive_warning_target_utc": null,
+    "predictive_warning_target_active": false,
+    "synthetic_protection_event_utc": null,
+    "synthetic_protection_active": false,
+    "end_of_life_event_utc": null,
+    "end_of_life_reached": false,
     "failure_time_utc": null,
     "failure_within_horizon": false
   }
@@ -194,6 +227,7 @@ La etiqueta asociada se almacena en `labels.jsonl`, nunca en el objeto anterior:
   "run_id": "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
   "sample_index": 13500,
   "timestamp": "2026-11-15T13:45:00.000Z",
+  "next_expected_interval_ms": 1000,
   "asset_id": "FREESUN-HEC-01",
   "profile": "solar_utility",
   "observables": {
