@@ -26,6 +26,7 @@ def run_config(
     duration_s=10,
     nb_idle_sampling_period_ms=None,
     milestones=None,
+    sensor_noise_stddev=0.1,
 ):
     return SyntheticRunConfig(
         run_id=str(uuid.UUID(int=index, version=4)),
@@ -40,7 +41,7 @@ def run_config(
         degradation_mode=mode,
         degradation_onset_fraction=0.2,
         ambient_temperature_c=25,
-        sensor_noise_stddev=0.1,
+        sensor_noise_stddev=sensor_noise_stddev,
         nominal_power_kw=120,
         thermal_time_constant_s=2,
         temperature_rise_at_full_load_c=20,
@@ -67,6 +68,61 @@ class SyntheticSimulatorTests(unittest.TestCase):
         self.assertIn("ground_truth", first.labels[0])
         self.assertEqual(
             first.telemetry[0]["timestamp"], first.labels[0]["timestamp"]
+        )
+
+    def test_telemetry_rows_match_the_documented_schema_fields(self):
+        run = simulate_run(run_config(36, profile="solar_utility"))
+        row = run.telemetry[0]
+        self.assertEqual(
+            set(row),
+            {
+                "schema_version",
+                "run_id",
+                "sample_index",
+                "timestamp",
+                "next_expected_interval_ms",
+                "asset_id",
+                "profile",
+                "observables",
+                "features",
+                "quality",
+            },
+        )
+        self.assertEqual(
+            set(row["observables"]),
+            {
+                "env_temp_c",
+                "relative_humidity_pct",
+                "irradiance_w_m2",
+                "ev_session_active",
+                "ev_power_kw",
+                "heatsink_temp_c",
+                "dc_bus_voltage_v",
+                "dc_bus_current_a",
+                "ac_current_l1_a",
+                "ac_current_l2_a",
+                "ac_current_l3_a",
+                "dc_link_esr_est_mohm",
+                "insulation_resistance_est_megaohm",
+                "thdi_pct",
+                "thermal_derating_active",
+            },
+        )
+        self.assertEqual(set(row["features"]), {"ac_current_imbalance_pct"})
+        self.assertEqual(set(row["quality"]), {"missing_fields"})
+
+    def test_noise_standard_deviation_controls_sensor_variation(self):
+        quiet = simulate_run(
+            run_config(37, sensor_noise_stddev=0)
+        )
+        noisy = simulate_run(
+            run_config(37, sensor_noise_stddev=1)
+        )
+        self.assertEqual(
+            quiet.telemetry[0]["observables"]["env_temp_c"], 25
+        )
+        self.assertNotEqual(
+            noisy.telemetry[0]["observables"]["env_temp_c"], 25
         )
 
     def test_generates_profile_specific_fields_and_missing_quality_mask(self):
