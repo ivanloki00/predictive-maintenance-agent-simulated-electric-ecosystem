@@ -21,6 +21,7 @@ class DegradationMode(str, Enum):
     IGBT_THERMAL_FATIGUE = "igbt_thermal_fatigue"
     DC_LINK_CAPACITOR = "dc_link_capacitor"
     INSULATION = "insulation"
+    PHASE_IMBALANCE = "phase_imbalance"
 
 
 @dataclass(frozen=True)
@@ -78,6 +79,12 @@ class SyntheticRunConfig:
     insulation_failure_megaohm: float
     nb_idle_sampling_period_ms: int | None = None
     milestones: SyntheticMilestoneConfig = SyntheticMilestoneConfig()
+    esr_growth_exponent: float = 2.0
+    humidity_baseline_pct: float = 58.0
+    humidity_daily_amplitude_pct: float = 24.0
+    humidity_reference_pct: float = 60.0
+    phase_imbalance_at_full_damage_pct: float = 12.0
+    phase_imbalance_failure_threshold_pct: float = 8.0
 
     def __post_init__(self) -> None:
         try:
@@ -154,6 +161,17 @@ class SyntheticRunConfig:
             ("thermal_failure_threshold_c", self.thermal_failure_threshold_c),
             ("esr_failure_ratio", self.esr_failure_ratio),
             ("insulation_failure_megaohm", self.insulation_failure_megaohm),
+            ("esr_growth_exponent", self.esr_growth_exponent),
+            ("humidity_baseline_pct", self.humidity_baseline_pct),
+            ("humidity_reference_pct", self.humidity_reference_pct),
+            (
+                "phase_imbalance_at_full_damage_pct",
+                self.phase_imbalance_at_full_damage_pct,
+            ),
+            (
+                "phase_imbalance_failure_threshold_pct",
+                self.phase_imbalance_failure_threshold_pct,
+            ),
         ):
             if (
                 isinstance(value, bool)
@@ -162,6 +180,17 @@ class SyntheticRunConfig:
                 or value <= 0
             ):
                 raise ValueError(f"{name} must be finite and greater than zero")
+        if (
+            isinstance(self.humidity_daily_amplitude_pct, bool)
+            or not isinstance(self.humidity_daily_amplitude_pct, (int, float))
+            or not math.isfinite(self.humidity_daily_amplitude_pct)
+            or self.humidity_daily_amplitude_pct < 0
+            or self.humidity_baseline_pct - self.humidity_daily_amplitude_pct < 0
+            or self.humidity_baseline_pct + self.humidity_daily_amplitude_pct > 100
+        ):
+            raise ValueError(
+                "humidity baseline and amplitude must stay within 0 to 100 percent"
+            )
         if (
             isinstance(self.degradation_onset_fraction, bool)
             or not isinstance(self.degradation_onset_fraction, (int, float))
@@ -286,6 +315,8 @@ def simulate_run(config: SyntheticRunConfig) -> SimulatedRun:
     junction_temp = config.ambient_temperature_c
     heatsink_temp = config.ambient_temperature_c
     previous_timestamp: datetime | None = None
+    previous_humidity_pct: float | None = None
+    humidity_exposure_pct_s = 0.0
 
     for sample_index, (elapsed_ms, expected_interval_ms) in enumerate(schedule):
         elapsed_s = elapsed_ms / 1000
@@ -304,7 +335,39 @@ def simulate_run(config: SyntheticRunConfig) -> SimulatedRun:
 
         day_phase = (elapsed_s / config.duration_s) * math.pi
         ambient = config.ambient_temperature_c + 3 * math.sin(day_phase * 2)
-        humidity = max(20.0, min(95.0, 58.0 + 24 * math.sin(day_phase * 2 + 1)))
+        humidity = (
+            config.humidity_baseline_pct
+            + config.humidity_daily_amplitude_pct * math.sin(day_phase * 2 + 1)
+        )
+        if onset_time is not None and previous_timestamp is not None:
+            previous_elapsed_s = (
+                previous_timestamp - config.started_at
+            ).total_seconds()
+            exposure_start_s = max(previous_elapsed_s, onset_time)
+            exposure_duration_s = max(0.0, elapsed_s - exposure_start_s)
+            if exposure_duration_s > 0 and previous_humidity_pct is not None:
+                start_humidity = (
+                    previous_humidity_pct
+                    if previous_elapsed_s >= onset_time
+                    else humidity
+                )
+                humidity_exposure_pct_s += (
+                    (start_humidity + humidity) / 2 * exposure_duration_s
+                )
+        degradation_elapsed_s = (
+            max(0.0, elapsed_s - onset_time) if onset_time is not None else 0.0
+        )
+        humidity_exposure_factor = (
+            min(
+                1.5,
+                humidity_exposure_pct_s
+                / degradation_elapsed_s
+                / config.humidity_reference_pct,
+            )
+            if degradation_elapsed_s > 0
+            else 0.0
+        )
+        previous_humidity_pct = humidity
         if config.profile == "solar_utility":
             irradiance = max(0.0, 1000.0 * math.sin(day_phase))
             load_fraction = irradiance / 1000
@@ -350,12 +413,12 @@ def simulate_run(config: SyntheticRunConfig) -> SimulatedRun:
         previous_timestamp = timestamp
 
         esr_ratio = (
-            1 + damage
+            1 + damage**config.esr_growth_exponent
             if config.degradation_mode == DegradationMode.DC_LINK_CAPACITOR
             else 1.0
         )
         insulation_factor = (
-            max(0.1, 1 - 0.9 * damage)
+            max(0.1, 1 - 0.9 * damage * humidity_exposure_factor)
             if config.degradation_mode == DegradationMode.INSULATION
             else 1.0
         )
@@ -369,6 +432,8 @@ def simulate_run(config: SyntheticRunConfig) -> SimulatedRun:
         dc_current = dc_power_kw * 1000 / dc_voltage
         phase_current = dc_power_kw * 1000 / (math.sqrt(3) * 400)
         phase_offset = rng.gauss(0, 0.0015)
+        if config.degradation_mode == DegradationMode.PHASE_IMBALANCE:
+            phase_offset += config.phase_imbalance_at_full_damage_pct / 100 * damage
         current_l1 = _noisy(rng, phase_current * (1 + phase_offset), config.sensor_noise_stddev)
         current_l2 = _noisy(rng, phase_current, config.sensor_noise_stddev)
         current_l3 = _noisy(rng, phase_current * (1 - phase_offset), config.sensor_noise_stddev)
@@ -471,6 +536,10 @@ def simulate_run(config: SyntheticRunConfig) -> SimulatedRun:
                     and internal_insulation
                     <= config.insulation_failure_megaohm
                 )
+                or (
+                    config.degradation_mode == DegradationMode.PHASE_IMBALANCE
+                    and imbalance >= config.phase_imbalance_failure_threshold_pct
+                )
             )
         ):
             failure_time = timestamp
@@ -491,6 +560,10 @@ def simulate_run(config: SyntheticRunConfig) -> SimulatedRun:
                     "dc_link_esr_mohm": round(internal_esr, 6),
                     "insulation_resistance_megaohm": round(
                         internal_insulation, 6
+                    ),
+                    "damage_fraction": round(damage, 6),
+                    "humidity_exposure_factor": round(
+                        humidity_exposure_factor, 6
                     ),
                     "degradation_mode": config.degradation_mode.value,
                     "degradation_state": degradation_state,
@@ -671,6 +744,36 @@ def generate_dataset(
                             run.config.insulation_failure_megaohm,
                             "Mohm",
                             "synthetic insulation failure criterion",
+                        ),
+                        "esr_growth_exponent": _synthetic_parameter(
+                            run.config.esr_growth_exponent,
+                            "dimensionless",
+                            "power-law exponent for synthetic ESR growth",
+                        ),
+                        "humidity_baseline_pct": _synthetic_parameter(
+                            run.config.humidity_baseline_pct,
+                            "%",
+                            "relative humidity baseline for the scenario",
+                        ),
+                        "humidity_daily_amplitude_pct": _synthetic_parameter(
+                            run.config.humidity_daily_amplitude_pct,
+                            "%",
+                            "relative humidity sinusoidal amplitude",
+                        ),
+                        "humidity_reference_pct": _synthetic_parameter(
+                            run.config.humidity_reference_pct,
+                            "%",
+                            "reference humidity for normalized accumulated exposure",
+                        ),
+                        "phase_imbalance_at_full_damage_pct": _synthetic_parameter(
+                            run.config.phase_imbalance_at_full_damage_pct,
+                            "%",
+                            "phase imbalance target at full synthetic damage",
+                        ),
+                        "phase_imbalance_failure_threshold_pct": _synthetic_parameter(
+                            run.config.phase_imbalance_failure_threshold_pct,
+                            "%",
+                            "synthetic phase imbalance failure criterion",
                         ),
                     },
                     "degradation_onset_fraction": run.config.degradation_onset_fraction,

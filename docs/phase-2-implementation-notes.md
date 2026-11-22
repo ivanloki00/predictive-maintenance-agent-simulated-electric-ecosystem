@@ -97,6 +97,11 @@ al llamar directamente a las funciones de simulación y ventana.
    configuración de equipo real. La integración física aún mantiene la carga
    observada durante los subpasos entre emisiones; los eventos operativos que
    ocurran dentro de un intervalo largo no se resuelven con fidelidad física.
+   Los escenarios etiquetados incluyen deriva térmica gradual, ESR con ley de
+   potencia configurable, aislamiento dependiente de humedad acumulada y
+   asimetría de fase progresiva. Sus parámetros y severidad normalizada se
+   guardan en la verdad-terreno y el manifiesto como supuestos no validados;
+   los cambios normales de irradiancia/carga no se etiquetan como degradación.
 5. **Hitos sintéticos:** aviso predictivo objetivo, evento de protección
    sintético y fin de vida tienen fracciones configurables y marcas temporales
    separadas, independientes de la marca de fallo. Son fracciones de progreso

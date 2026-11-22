@@ -103,8 +103,10 @@ Cada línea de `labels.jsonl` corresponde a una muestra de telemetría por
 | `ground_truth.junction_temp_c` | número | °C | Temperatura de unión generada por el modelo térmico del simulador. |
 | `ground_truth.dc_link_esr_mohm` | número | mΩ | ESR interna exacta generada por el simulador. |
 | `ground_truth.insulation_resistance_megaohm` | número | MΩ | Resistencia interna generada por el simulador. |
-| `ground_truth.degradation_mode` | enum | — | `none`, `igbt_thermal_fatigue`, `dc_link_capacitor` o `insulation`; puede ampliarse en una nueva versión. |
+| `ground_truth.degradation_mode` | enum | — | `none`, `igbt_thermal_fatigue`, `dc_link_capacitor`, `insulation` o `phase_imbalance`; puede ampliarse en una nueva versión. |
 | `ground_truth.degradation_state` | enum | — | `healthy`, `early_warning` o `critical`, según umbrales documentados en la configuración del escenario. |
+| `ground_truth.damage_fraction` | número | 0–1 | Progreso normalizado del escenario de degradación; no es una medida física ni una severidad calibrada. |
+| `ground_truth.humidity_exposure_factor` | número | Adimensional | Factor sintético calculado a partir de la exposición acumulada a humedad para el escenario de aislamiento. |
 | `ground_truth.event_onset_utc` | timestamp o `null` | ISO 8601 UTC | Inicio de la degradación; `null` si el escenario es sano. |
 | `ground_truth.predictive_warning_target_utc` | timestamp o `null` | ISO 8601 UTC | Hito objetivo sintético derivado del progreso normalizado de degradación; no es una alarma emitida por un predictor. |
 | `ground_truth.predictive_warning_target_active` | booleano | — | Indica si la muestra alcanzó el hito objetivo de aviso. |
@@ -115,6 +117,15 @@ Cada línea de `labels.jsonl` corresponde a una muestra de telemetría por
 | `ground_truth.failure_time_utc` | timestamp o `null` | ISO 8601 UTC | Instante de fallo simulado; `null` si no ocurre durante la ejecución. |
 | `ground_truth.failure_within_horizon` | booleano o `null` | — | Si el fallo ocurre dentro de `prediction_horizon_s` configurado para la ejecución. `null` si la etiqueta no aplica. |
 
+Los modos de degradación incluyen deriva térmica gradual del IGBT, crecimiento
+no lineal de ESR, degradación de aislamiento modulada por exposición acumulada
+a humedad y un modo de asimetría de fase que afecta
+`features.ac_current_imbalance_pct`. Los escenarios sanos pueden tener cambios
+normales de irradiancia, carga y humedad: `degradation_mode: none` no genera
+inicio, progreso ni fallo sintético.
+
+Todos estos mecanismos y `damage_fraction` son hipótesis sintéticas
+configurables, no modelos calibrados ni criterios de fallo de equipos reales.
 Los hitos de aviso, protección sintética y fin de vida usan fracciones del
 progreso normalizado de degradación, configuradas y trazadas por separado en el
 manifiesto. Son supuestos sintéticos de baja confianza, no umbrales de equipo ni

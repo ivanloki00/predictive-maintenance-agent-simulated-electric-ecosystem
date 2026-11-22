@@ -27,6 +27,8 @@ def run_config(
     nb_idle_sampling_period_ms=None,
     milestones=None,
     sensor_noise_stddev=0.1,
+    humidity_baseline_pct=58,
+    humidity_daily_amplitude_pct=24,
 ):
     return SyntheticRunConfig(
         run_id=str(uuid.UUID(int=index, version=4)),
@@ -52,6 +54,8 @@ def run_config(
         insulation_failure_megaohm=1,
         nb_idle_sampling_period_ms=nb_idle_sampling_period_ms,
         milestones=milestones or SyntheticMilestoneConfig(),
+        humidity_baseline_pct=humidity_baseline_pct,
+        humidity_daily_amplitude_pct=humidity_daily_amplitude_pct,
     )
 
 
@@ -192,6 +196,14 @@ class SyntheticSimulatorTests(unittest.TestCase):
         self.assertIsNotNone(degraded.failure_time_utc)
         self.assertIsNone(healthy.event_onset_utc)
         self.assertIsNone(healthy.failure_time_utc)
+        self.assertEqual(
+            {label["ground_truth"]["degradation_mode"] for label in healthy.labels},
+            {"none"},
+        )
+        self.assertNotEqual(
+            healthy.telemetry[0]["observables"]["irradiance_w_m2"],
+            healthy.telemetry[5]["observables"]["irradiance_w_m2"],
+        )
         healthy_truth = healthy.labels[-1]["ground_truth"]
         self.assertIsNone(healthy_truth["predictive_warning_target_utc"])
         self.assertIsNone(healthy_truth["synthetic_protection_event_utc"])
@@ -257,6 +269,101 @@ class SyntheticSimulatorTests(unittest.TestCase):
                 synthetic_protection_damage_fraction=0.7,
                 end_of_life_damage_fraction=1.0,
             )
+
+    def test_esr_growth_is_nonlinear_and_severity_is_labeled(self):
+        run = simulate_run(
+            run_config(38, mode=DegradationMode.DC_LINK_CAPACITOR)
+        )
+        truth = run.labels[6]["ground_truth"]
+        self.assertAlmostEqual(truth["damage_fraction"], 0.5)
+        self.assertAlmostEqual(truth["dc_link_esr_mohm"], 2.5)
+
+    def test_igbt_thermal_drift_grows_with_degradation_progress(self):
+        degraded = simulate_run(
+            run_config(
+                41,
+                profile="ev_nb",
+                mode=DegradationMode.IGBT_THERMAL_FATIGUE,
+                sensor_noise_stddev=0,
+            )
+        )
+        healthy = simulate_run(
+            run_config(
+                41,
+                profile="ev_nb",
+                mode=DegradationMode.NONE,
+                sensor_noise_stddev=0,
+            )
+        )
+        degraded_truth = degraded.labels[6]["ground_truth"]
+        healthy_truth = healthy.labels[6]["ground_truth"]
+        self.assertAlmostEqual(degraded_truth["damage_fraction"], 0.5)
+        self.assertGreater(
+            degraded_truth["junction_temp_c"],
+            healthy_truth["junction_temp_c"],
+        )
+
+    def test_insulation_degradation_tracks_cumulative_humidity_exposure(self):
+        high_humidity = simulate_run(
+            run_config(
+                39,
+                mode=DegradationMode.INSULATION,
+                humidity_baseline_pct=90,
+                humidity_daily_amplitude_pct=0,
+            )
+        )
+        low_humidity = simulate_run(
+            run_config(
+                39,
+                mode=DegradationMode.INSULATION,
+                humidity_baseline_pct=30,
+                humidity_daily_amplitude_pct=0,
+            )
+        )
+        high_truth = high_humidity.labels[4]["ground_truth"]
+        low_truth = low_humidity.labels[4]["ground_truth"]
+        self.assertGreater(
+            high_truth["humidity_exposure_factor"],
+            low_truth["humidity_exposure_factor"],
+        )
+        self.assertLess(
+            high_truth["insulation_resistance_megaohm"],
+            low_truth["insulation_resistance_megaohm"],
+        )
+
+    def test_phase_imbalance_degradation_is_visible_in_schema_feature(self):
+        degraded = simulate_run(
+            run_config(
+                40,
+                profile="ev_nb",
+                mode=DegradationMode.PHASE_IMBALANCE,
+                sensor_noise_stddev=0,
+            )
+        )
+        healthy = simulate_run(
+            run_config(
+                40,
+                profile="ev_nb",
+                mode=DegradationMode.NONE,
+                sensor_noise_stddev=0,
+            )
+        )
+        start_imbalance = degraded.telemetry[0]["features"][
+            "ac_current_imbalance_pct"
+        ]
+        end_imbalance = degraded.telemetry[-1]["features"][
+            "ac_current_imbalance_pct"
+        ]
+        healthy_end_imbalance = healthy.telemetry[-1]["features"][
+            "ac_current_imbalance_pct"
+        ]
+        self.assertGreater(end_imbalance, start_imbalance)
+        self.assertGreater(end_imbalance, healthy_end_imbalance)
+        self.assertEqual(
+            degraded.labels[-1]["ground_truth"]["degradation_mode"],
+            "phase_imbalance",
+        )
+        self.assertIsNotNone(degraded.failure_time_utc)
 
     def test_partitions_are_assigned_to_runs_and_saved_in_manifest(self):
         configs = [run_config(index) for index in range(10, 14)]
